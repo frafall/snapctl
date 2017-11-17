@@ -1,57 +1,59 @@
 #!/usr/bin/python
 import os
 import argparse
-import telnetlib
 import json
-import time
+import snapcast
 
 """
    Snapcast control utility
 
+   Author: frafall
+
    Use cases:
 
+      # List objects
       snapctl list clients
       snapctl list streams
-      snapctl mute <client>
-      snapctl volume <client> +- db/%
+      snapctl list groups
 
-      snapctl move <client> to <stream>
+      # Control functions
+      snapctl mute <client> or <group>
+      snapctl volume <client> or <group> +- db/%
+      snapctl move <client> to <group>
+      snapctl move <group> to <stream>
 
-      snapctl info client
-      snapctl info stream
+      # Show information about objects
+      snapctl info group  <id>
+      snapctl info client <id>
+      snapctl info stream <id>
 
-      snapctl dump				# Dump raw JSON return
+      # Events ?
+      snapctl monitor
+
+      # Raw JSON output
+      snapctl dump
+
+   JSON API:
+      Client.GetStatus
+      Client.SetVolume		notifications
+      Client.SetLatency		notifications
+      Client.SetName		notifications
+
+      Group.GetStatus
+      Group.SetMute		notifications
+      Group.SetStream		notifications
+      Group.SetClients		returns server status, notifications
+      
+      Server.GetRPCVersion
+      Server.GetStatus		returns server status
+      Server.DeleteClient	returns server status, notifications
+
 
    Streams/clients has ID's but not intuitive, use name mapping?
 
    Prerequisite:
       pip install zeroconf (TBD)
 """
-
-class SnapServer(object):
-   """
-   Representation of a Snapcast server
-   """
-   reqId = 1
-
-   def __init__(self, hostname):
-      """If no hostname given, read SNAPSERVER from environment or fall back to localhost."""
-      self.connection = telnetlib.Telnet(hostname, 1705)
-
-   def doRequest(self, j, requestId):
-      #print("send: " + j)
-      self.connection.write(j + "\r\n")
-      while (True):
-         response = self.connection.read_until("\r\n", 2)
-         jResponse = json.loads(response)
-         if 'id' in jResponse:
-            if jResponse['id'] == requestId:
-               #print("recv: " + response)
-               return jResponse
-      return
-
-   def cmdGetStatus(self):
-      return self.doRequest(json.dumps({'jsonrpc': '2.0', 'method': 'Server.GetStatus', 'id': 1}), 1)
 
 #
 # Main command line 
@@ -66,6 +68,10 @@ def main():
    # The dump command
    parser_dump = sub.add_parser('dump')
    parser_dump.set_defaults(dump=True)
+
+   # The monitor command
+   parser_monitor = sub.add_parser('monitor')
+   parser_monitor.set_defaults(monitor=True)
 
    # The list command
    parser_list = sub.add_parser('list')
@@ -83,16 +89,16 @@ def main():
    args = parser.parse_args()
 
    # If no server given look service '_snapcast-jsonrpc._tcp' up in mdns
-   srv = SnapServer(args.server)
+   srv = snapcast.SnapServer(args.server, debug=args.debug)
 
    # Do the dump command
    if(getattr(args, 'dump', False)):
-      result = srv.cmdGetStatus()
+      result = srv.GetStatus()
       print json.dumps(result, indent=3, sort_keys=True)
 
    # List the clients
    elif(getattr(args, 'listclients', False)):
-      result = srv.cmdGetStatus()
+      result = srv.GetStatus()
       for group in result["result"]["server"]["groups"]:
          for entry in group["clients"]:
             if(args.verbose):
@@ -102,31 +108,20 @@ def main():
 
    # List the streams
    elif(getattr(args, 'liststreams', False)):
-      result = srv.cmdGetStatus()
+      result = srv.GetStatus()
       for entry in result["result"]["server"]["streams"]:
          details = ""
          if(args.verbose):
             details = entry["uri"]["raw"]
          print("%-20s %s\t%s" %(entry["id"], entry["status"], details))
 
-   # List the groups
-   elif(getattr(args, 'listgroups', False)):
-      result = srv.cmdGetStatus()
-      for entry in result["result"]["server"]["groups"]:
-         if(entry["name"]):
-            name = entry["name"]
-         else:
-            name = entry["stream_id"]
+   # Monitor the Snapcast server
+   elif(getattr(args, 'monitor', False)):
+      print("Monitor")
 
-         if(args.verbose):
-            print("%-20s\t%s\t%s" %(name, entry["stream_id"], entry["id"]))
-         else:
-            print("%-20s\t%s" %(name, entry["stream_id"]))
+   # Close down connection again
+   srv.close()
 
-         if(args.verbose):
-            for client in entry["clients"]:
-               print("   %s" %(client["config"]["name"]))
-            print("")
 
 if __name__ == '__main__':
    main()
