@@ -19,6 +19,10 @@ snapctl info stream
 snapctl dump
 ```
 
+Notes:
+I use the Python v3 'queue', to use in Python v2 you need to install 'future' package.
+
+
 TODO
 ----
 - [ ] **Change** Move signal handling into SnapServer class
