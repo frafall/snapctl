@@ -48,14 +48,15 @@ class SnapServer(threading.Thread):
          try:
             response = self.socket.read_until("\r\n", 2)
 
-         except EOFError:
+         except:
             pass
             
-         if response:
-            msg = json.loads(response)
-            self.input.put(msg) 
-            if self.debug:
-               print('Debug: message queued (%s)' %(self.type(msg)))
+         else:
+            if response:
+               msg = json.loads(response)
+               self.input.put(msg) 
+               if self.debug:
+                  print('Debug: message queued (%s)' %(self.type(msg)))
 
    # Send to server
    def send(self, request):
@@ -72,9 +73,9 @@ class SnapServer(threading.Thread):
       return id
 
    # Pop from queue
-   def get(self):
-      msg = self.input.get()
-      if self.debug:
+   def get(self, block=True, timeout=None):
+      msg = self.input.get(block, timeout)
+      if msg and self.debug:
          print('Debug: reading queue (%s)' %(self.type(msg)))
       return msg
 
