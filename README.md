@@ -9,6 +9,7 @@ in preparation of a Home Assistant control interface.
 snapctl dump
 snapctl list clients
 snapctl list streams
+snapctl list groups
 
 Todo:
 snapctl mute <client>
