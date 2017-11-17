@@ -19,3 +19,6 @@ snapctl info stream
 snapctl dump
 ```
 
+TODO
+----
+- [ ] **Change** Move signal handling into SnapServer class
