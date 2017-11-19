@@ -24,7 +24,8 @@ snapctl info stream
 Notes:
 I use the Python v3 'queue', to use in Python v2 you need to install 'future' package.
 
-** Home Assistant **
+Home Assistant
+--------------
 I would like to:
 1. Have a 'media_player' per zone, showing meta information for media played in zone 
    NB! missing meta data in snapcast for this.
