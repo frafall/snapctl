@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import os
+import os, socket
 import argparse
 import json
 import snapcast
@@ -89,6 +89,10 @@ def main():
    parser_info.set_defaults(info=True)
    parser_info.add_argument('objectid', nargs=1)
 
+   #ssub = parser_info.add_subparsers()
+   #info_client = ssub.add_parser('client')
+   #info_client.add_argument('objectid', nargs=1)
+
    # The dump command
    parser_dump = sub.add_parser('dump')
    parser_dump.set_defaults(dump=True)
@@ -115,7 +119,7 @@ def main():
    # If no server given look service '_snapcast-jsonrpc._tcp' up in mdns
    try:
       srv = snapcast.SnapServer(args.server, debug=args.debug)
-   except:
+   except socket.error as detail:
       print('Connection to %s refused!' %(args.server))
       return 
 

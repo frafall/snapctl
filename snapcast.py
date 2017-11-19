@@ -7,6 +7,32 @@ import time
 import threading
 import queue
 
+"""
+Snapcast Python API
+
+Usage:
+
+   srv = SnapServer(debug=False)
+
+   try:
+      client = srv.FindClient(<id or name<)
+
+   except ClientNotFound:
+      pass
+
+   else:
+      client.mute()
+
+   srv.close()
+
+"""
+class SnapClient:
+
+   def __init__(self):
+      pass
+
+   def volume(self, percent=None):
+      pass
 
 class SnapServer(threading.Thread):
    reqId = 1
