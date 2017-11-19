@@ -55,6 +55,25 @@ import snapcast
       pip install zeroconf (TBD)
 """
 
+def DumpObject(srv, objectid):
+   result = srv.GetStatus()
+
+   for group in result["result"]["server"]["groups"]:
+      for entry in group["clients"]:
+         if(entry['id'] == objectid or entry['host']['mac'] == objectid or objectid in entry['config']['name']):
+            print 'Client: ' + json.dumps(entry, indent=3, sort_keys=True)
+            return
+
+   for entry in result["result"]["server"]["streams"]:
+      if(entry['id'] == objectid):
+         print 'Stream: ' + json.dumps(entry, indent=3, sort_keys=True)
+         return
+
+   for entry in result["result"]["server"]["groups"]:
+      if(entry['id'] == objectid):
+         print 'Group: ' + json.dumps(entry, indent=3, sort_keys=True)
+         return
+
 #
 # Main command line 
 #
@@ -64,6 +83,11 @@ def main():
    parser.add_argument('-d', '--debug', action='store_true')
    parser.add_argument('-s', '--server', default=os.environ.get('SNAPSERVER', '127.0.0.1')) 
    sub = parser.add_subparsers()
+
+   # The info command
+   parser_info = sub.add_parser('info')
+   parser_info.set_defaults(info=True)
+   parser_info.add_argument('objectid', nargs=1)
 
    # The dump command
    parser_dump = sub.add_parser('dump')
@@ -89,7 +113,11 @@ def main():
    args = parser.parse_args()
 
    # If no server given look service '_snapcast-jsonrpc._tcp' up in mdns
-   srv = snapcast.SnapServer(args.server, debug=args.debug)
+   try:
+      srv = snapcast.SnapServer(args.server, debug=args.debug)
+   except:
+      print('Connection to %s refused!' %(args.server))
+      return 
 
    # Do the dump command
    if(getattr(args, 'dump', False)):
@@ -114,6 +142,25 @@ def main():
          if(args.verbose):
             details = entry["uri"]["raw"]
          print("%-20s %s\t%s" %(entry["id"], entry["status"], details))
+
+   # List the groups
+   elif(getattr(args, 'listgroups', False)):
+      result = srv.GetStatus()
+      for group in result["result"]["server"]["groups"]:
+         label = group['stream_id']
+         if 'name' in group and group['name']:
+            label = group['name']
+         details = ""
+         if(args.verbose):
+            details = group["id"]
+         print("%-20s\t%s" %(label, details))
+         if(args.verbose):
+            for client in group["clients"]:
+               print("   %-20s" %(client["config"]["name"]))
+
+   # Info/details on objects
+   elif(getattr(args, 'info', False)):
+      DumpObject(srv, args.objectid[0])
 
    # Monitor the Snapcast server
    elif(getattr(args, 'monitor', False)):

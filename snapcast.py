@@ -97,9 +97,15 @@ class SnapServer(threading.Thread):
          print('Debug: response %d found' %(id))
       return msg
 
+
    def GetStatus(self):
       return self.query({'method': 'Server.GetStatus'})
 
+   def LookupID(self, id):
+      result = self.GetStatus()
+      for entry in result["result"]["server"]["streams"]:
+         return None
+      return None
 
 def main():
    srv = SnapServer(debug=True)
