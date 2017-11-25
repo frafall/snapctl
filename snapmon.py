@@ -16,7 +16,7 @@ class State:
 
 
 state = State()
-srv = snapcast.SnapServer('192.133.64.10', debug=True)
+srv = snapcast.SnapServer(debug=True)
 
 while not state.terminate:
    msg = False
