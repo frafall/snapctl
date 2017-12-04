@@ -22,12 +22,20 @@ def tag(jtag, name, default=None):
 
 for group in snapserver.groups:
 	stream = snapserver.stream(group.stream)
-	jtag   = stream._stream.get('meta')
-	title = tag(jtag, 'TITLE')
-	artist = tag(jtag, 'ARTIST')
-	if(title): 
-		state = 'playing "%s" by %s from stream <%s>' %(title, artist, stream.friendly_name)
-	else:
-		state = '-idle-'
-	print("Zone <%s> %s" %(group.friendly_name, state))
 
+	if(stream.status != 'idle'):
+		jtag   = stream._stream.get('meta')
+		title = tag(jtag, 'TITLE')
+		artist = tag(jtag, 'ARTIST')
+		if(title): 
+			state = 'playing "%s" by %s from stream <%s>' %(title, artist, stream.friendly_name)
+		else:
+			state = '-idle-'
+		print("Zone: %s" %(group.friendly_name))
+		print("\t stream: %s" %(stream.friendly_name))
+		print("\t artist: %s" %(artist))
+		print("\t  title: %s" %(title))
+
+		for client_id in group.clients:
+			client = snapserver.client(client_id)
+			print("\tspeaker: %s" %(client.friendly_name))
