@@ -21,4 +21,5 @@ speakers are in which zone, something like a list of speakers and
 a selection list of zones, perhaps a mute button for speaker
 
 But damn, I need snapcast to hardcode zones to be practical
-
+So, while looking into a hass module I have to see how to 
+make static groups/zones in snapcast
