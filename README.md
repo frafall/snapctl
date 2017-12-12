@@ -5,9 +5,6 @@ my feeble attempts on doing the same.
 
 Now I can focus on what I really wanted.. :)
 
-First test is to verify the metadata interface - and it works with unmodified
-python-snapcast, check playing.py
-
 So, now on to Home Assistant.
 
 I would like a media_player that:
