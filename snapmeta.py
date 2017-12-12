@@ -1,4 +1,9 @@
 #!/usr/bin/python3
+#
+# Display metadata of playing streams
+#
+# Author: github.com/frafall
+#
 import sys
 import os
 import logging

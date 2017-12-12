@@ -1,4 +1,9 @@
 #!/usr/bin/python3
+#
+# Show status of a snapserver
+#
+# Author: github.com/frafall
+#
 import os
 import sys
 import logging
