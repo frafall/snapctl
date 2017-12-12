@@ -44,6 +44,10 @@ def main():
          return a
       return b
       
+   def tag(jtag, name, default=None):
+      if(name in jtag):
+         return jtag[name]
+      return default
 
    # Parse arguments
    parser = argparse.ArgumentParser()
@@ -84,6 +88,12 @@ def main():
       print("Streams:")
       for stream in snapserver.streams:
          print("   [%s] %s" %(stream.status, stream.name))
+         if(stream.status != 'idle'):
+            title = tag(stream.meta, 'TITLE')
+            artist = tag(stream.meta, 'ARTIST')
+            print("      artist: %s" %(artist))
+            print("       title: %s" %(title))
+
 
 if __name__ == '__main__':
    main()
