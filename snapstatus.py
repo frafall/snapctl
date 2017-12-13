@@ -74,7 +74,7 @@ def main():
          if verbose > 0:
             print("   [%s] name='%s' stream='%s'" %(group.identifier, group.name, group.stream))
          else:
-            name = setalt(group.name, group.stream)
+            name = setalt(group.name, '<nameless>')
             print("   %s (%s)" %(name, group.stream))
 
          for id in group.clients:
