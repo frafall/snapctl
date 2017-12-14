@@ -19,7 +19,7 @@ import json
 
 import snapcast.control
 
-def setdefault(a,b):
+def getdefault(a,b):
    if a:
       return a
    return b
@@ -58,8 +58,8 @@ class SnapController(object):
          stream = self._snapserver.stream(stream)
       if meta and stream.status != 'idle':
          meta = stream.meta
-         artist = setdefault(meta['ARTIST'], '-unknown-')
-         title = setdefault(meta['TITLE'], '-unknown-')
+         artist = getdefault(meta['ARTIST'], '-unknown-')
+         title = getdefault(meta['TITLE'], '-unknown-')
          print("%s playing '%s' by %s" %(stream.name, title, artist))
       else:  
          print('%s' %(stream.name))
@@ -71,9 +71,9 @@ class SnapController(object):
    # Client information
    def showClient(self, client, multiline=True):
       if(type(client) is str):
-         client = self._snapserver.client(client)
+         client = self._clientByNameOrId(client)
 
-      clientname = setdefault(client.name, '-noname-')
+      clientname = getdefault(client.name, '-noname-')
 
       if self._verbose:
          print('[%s] %s' %(client.identifier, clientname))
@@ -89,12 +89,16 @@ class SnapController(object):
       if(type(group) is str):
          group = self._groupByNameOrId(group)
 
-      groupname = setdefault(group.name, '-noname-')
+      groupname = getdefault(group.name, '-noname-')
   
+      is_muted = ''
+      if group.muted:
+         is_muted = ' (muted)'
+
       if self._verbose:
-         print('[%s] %s, stream %s' %(group.identifier, groupname, group.stream))
+         print('[%s] %s%s, stream %s' %(group.identifier, groupname, is_muted, group.stream))
       else:
-         print('%s, stream %s' %(groupname, group.stream))
+         print('%s%s, stream %s' %(groupname, is_muted, group.stream))
 
    def showAllGroups(self):
       for group in self._snapserver.groups:
@@ -130,6 +134,17 @@ class SnapController(object):
    #
    # Lookup functions
    #
+   def _clientByNameOrId(self, nameorid):
+      try:
+         return self._snapserver.client(nameorid)
+
+      except KeyError:
+         for c in self._snapserver.clients:
+            if(c.name == nameorid):
+               return c
+
+         raise
+
    def _groupByNameOrId(self, nameorid):
       try:
          return self._snapserver.group(nameorid)
@@ -140,7 +155,7 @@ class SnapController(object):
                return g
 
          raise
-      
+
    #
    # Update functions
    #
