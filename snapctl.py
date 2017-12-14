@@ -74,15 +74,40 @@ class SnapController(object):
          client = self._clientByNameOrId(client)
 
       clientname = getdefault(client.name, '-noname-')
+      groupname = getdefault(client.group.name, '-noname-')
 
-      if self._verbose:
-         print('[%s] %s' %(client.identifier, clientname))
+      if multiline or self._verbose:
+
+         print('Client ID  : %s' %(client.identifier))
+         print('   name    : %s' %(clientname))
+         print('   group   : %s' %(groupname))
+         print('   muted   : %s' %(client.muted))
+         print()
+
       else:
-         print('%s' %(clientname))
+         print('%s (%s)' %(clientname, groupname))
 
    def showAllClients(self):
       for client in self._snapserver.clients:
          self.showClient(client, multiline=False)
+
+   def moveClient(self, nameorid, groupnameorid):
+      pass
+
+   def renameClient(self, nameorid, newname):
+      print("Rename client <%s> to <%s>" %(nameorid, newname))
+      client = self._clientByNameOrId(nameorid)
+      obj = client.set_name(newname)
+      self._loop.run_until_complete(obj)
+
+   def muteClients(self, nameorids, mute=True):
+      nameorids = self._expandClients(nameorids)
+      for cid in nameorids:
+         client = self._snapserver.client(cid)
+         obj = client.set_muted(mute)
+         self._loop.run_until_complete(obj)
+         if(self._verbose):
+            print("Mute '%s' status %s" %(client.name, mute))
 
    # Group information
    def showGroup(self, group, multiline=True):
@@ -90,46 +115,70 @@ class SnapController(object):
          group = self._groupByNameOrId(group)
 
       groupname = getdefault(group.name, '-noname-')
+      streamname = getdefault(group.stream, '-none-')
   
-      is_muted = ''
-      if group.muted:
-         is_muted = ' (muted)'
+      if multiline or self._verbose:
+         print('Group ID   : %s' %(group.identifier))
+         print('   name    : %s' %(group.name))
+         print('   muted   : %s' %(group.muted))
+         print('   clients :')
+         for cid in group.clients:
+            client = self._snapserver.client(cid)
+            clientname = getdefault(client.name, client.identifier)
+            print('      %s' %(clientname))
+         print()
 
-      if self._verbose:
-         print('[%s] %s%s, stream %s' %(group.identifier, groupname, is_muted, group.stream))
       else:
-         print('%s%s, stream %s' %(groupname, is_muted, group.stream))
+         is_muted = ''
+         if group.muted:
+            is_muted = ' (muted)'
+
+         print('[%s] %s%s, stream %s' %(group.identifier, groupname, is_muted, streamname))
 
    def showAllGroups(self):
       for group in self._snapserver.groups:
          self.showGroup(group, multiline=False)
 
    # Group actions
+   def assignStream(self, nameorid, stream):
+      group = self._groupByNameOrId(nameorid)
+      obj = group.set_stream(stream)
+      self._loop.run_until_complete(obj)
+
    def renameGroup(self, nameorid, newname):
       print("Rename group <%s> to <%s>" %(nameorid, newname))
+      group = self._groupByNameOrId(nameorid)
+      obj = group.rename(newname)
+      self._loop.run_until_complete(obj)
       
    def addGroup(self, name):
       print("Add group <%s>" %(name))
+      obj = self._snapserver.group_add(name)
+      self._loop.run_until_complete(obj)
       
    def deleteGroup(self, nameorid):
       print("Delete group <%s>" %(nameorid))
+      group = self._groupByNameOrId(nameorid)
+      obj = group.delete()
+      self._loop.run_until_complete(obj)
+
+   def setGroupVolume(self, percent, nameorid):
+      nameorids = self._expandGroups(nameorids)
+      for gid in nameorids:
+         group = self._groupByNameOrId(gid)
+         obj = group.set_volume(volume)
+         self._loop.run_until_complete(obj)
+         if(self._verbose):
+            print("Volume for %s set to %s%%" %(group.name, volume))
 
    def muteGroups(self, nameorids=None, mute=False):
-
-      # Group name or id string
-      if(type(nameorids) is str):
-         nameorids = [nameorids]
-
-      # Empty list implies all groups
-      if(len(nameorids)==0):
-         nameorids = map(lambda g: g.identifier , self._snapserver.groups)
-
+      nameorids = self._expandGroups(nameorids)
       for gid in nameorids:
          group = self._groupByNameOrId(gid)
          obj = group.set_muted(mute)
          self._loop.run_until_complete(obj)
          if(self._verbose):
-            print("Mute %s status %s" %(group.friendly_name, mute))
+            print("Mute %s status %s" %(group.name, mute))
 
    #
    # Lookup functions
@@ -156,6 +205,30 @@ class SnapController(object):
 
          raise
 
+   def _expandClients(self, nameorids):
+
+      # Client name or id string
+      if(type(nameorids) is str):
+         nameorids = [nameorids]
+
+      # Empty list implies all clients
+      if(len(nameorids)==0):
+         nameorids = map(lambda g: g.identifier , self._snapserver.clients)
+
+      return nameorids
+
+   def _expandGroups(self, nameorids):
+
+      # Group name or id string
+      if(type(nameorids) is str):
+         nameorids = [nameorids]
+
+      # Empty list implies all groups
+      if(len(nameorids)==0):
+         nameorids = map(lambda g: g.identifier , self._snapserver.groups)
+
+      return nameorids
+
    #
    # Update functions
    #
@@ -181,6 +254,12 @@ def main():
    #
    parser_group = subparsers.add_parser('group', help='Group commands')
    group_sub = parser_group.add_subparsers()
+
+   # snapctl group stream <nameorid> <id>
+   parser_group_stream = group_sub.add_parser('stream', help='Mute a group volume')
+   parser_group_stream.set_defaults(assigngroup=True)
+   parser_group_stream.add_argument('nameorid', help='Name or id of group')
+   parser_group_stream.add_argument('stream', help='Stream to assign')
 
    # snapctl group mute
    parser_group_mute = group_sub.add_parser('mute', help='Mute a group volume')
@@ -245,6 +324,24 @@ def main():
    # snapctl client rename <nameorid> <name>
    parser_client_ren = client_sub.add_parser('rename', help='Rename a client')
    parser_client_ren.set_defaults(renclient=True)
+   parser_client_ren.add_argument('nameorid', action='store', help='Client to rename')
+   parser_client_ren.add_argument('newname', action='store', help='New client name')
+
+   # snapctl client move <nameorid> <group nameorid>
+   parser_client_move = client_sub.add_parser('move', help='Rename a client')
+   parser_client_move.set_defaults(moveclient=True)
+   parser_client_move.add_argument('groupnameorid', help='Name or id of target group')
+   parser_client_move.add_argument('nameorid', nargs='*', help='Name or id of client(s)')
+
+   # snapctl client mute
+   parser_client_mute = client_sub.add_parser('mute', help='Mute a client volume')
+   parser_client_mute.set_defaults(muteclient=True)
+   parser_client_mute.add_argument('nameorid', nargs='*', help='Name or id of client(s)')
+
+   # snapctl client unmute
+   parser_client_unmute = client_sub.add_parser('unmute', help='Unmute a client volume')
+   parser_client_unmute.set_defaults(unmuteclient=True)
+   parser_client_unmute.add_argument('nameorid', nargs='*', help='Name or id of client(s)')
 
    # Do the parse
    args = parser.parse_args()
@@ -265,14 +362,6 @@ def main():
       else:
          controller.showAllStreams(meta=args.meta)
 
-   # Show one or more groups
-   elif('showgroup' in args and args.showgroup):
-      if args.nameorid:
-         for nameorid in args.nameorid:
-            controller.showGroup(nameorid)
-      else:
-         controller.showAllGroups()
-
    # Show one or more clients
    elif('showclient' in args and args.showclient):
       if args.nameorid:
@@ -280,6 +369,30 @@ def main():
             controller.showClient(nameorid)
       else:
          controller.showAllClients()
+
+   # Rename a client
+   elif('renclient' in args and args.renclient):
+      controller.renameClient(args.nameorid, args.newname)
+
+   # Assign a client to a target group
+   elif('moveclient' in args and args.moveclient):
+      controller.moveClient(args.nameorid, args.groupnameorid)
+
+   # Mute a client
+   elif('muteclient' in args and args.muteclient):
+      controller.muteClients(args.nameorid, mute=True)
+
+   # Unmute a client
+   elif('unmuteclient' in args and args.unmuteclient):
+      controller.muteClients(args.nameorid, mute=False)
+
+   # Show one or more groups
+   elif('showgroup' in args and args.showgroup):
+      if args.nameorid:
+         for nameorid in args.nameorid:
+            controller.showGroup(nameorid)
+      else:
+         controller.showAllGroups()
 
    # Add a group
    elif('addgroup' in args and args.addgroup):
@@ -293,6 +406,10 @@ def main():
    elif('rengroup' in args and args.rengroup):
       controller.renameGroup(args.nameorid, args.newname)
 
+   # Assign a stream to a group
+   elif('assigngroup' in args and args.assigngroup):
+      controller.assignStream(args.nameorid, args.stream)
+
    # Mute a group
    elif('mutegroup' in args and args.mutegroup):
       controller.muteGroups(args.nameorid, mute=True)
@@ -303,7 +420,7 @@ def main():
 
    # Set group volume
    elif('volumegroup' in args and args.volumegroup):
-      print("Set group volume")
+      controller.setGroupVolume(args.percent, args.nameorid)
 
    # No arguments given, display help
    else:
