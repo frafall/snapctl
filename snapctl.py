@@ -101,9 +101,10 @@ class SnapController(object):
          print('   host    : %s' %(client.hostname))
          print('   group   : %s' %(groupname))
          print('   muted   : %s' %(client.muted))
+         print('   online  : %s' %(client.connected))
          print()
 
-      else:
+      elif client.connected:
          print('%s (%s)' %(clientname, groupname))
 
    def showAllClients(self):
