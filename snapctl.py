@@ -159,12 +159,12 @@ def main():
    parser.add_argument('-v', '--verbose', action='count', default=0)
    parser.add_argument('-d', '--debug', action='store_true')
    parser.add_argument('-s', '--server', default=os.environ.get('SNAPSERVER', '127.0.0.1:1705'))
-   subparsers = parser.add_subparsers(help='subparsers')
+   subparsers = parser.add_subparsers(help='Snapcast control commands')
    
    #
    # The group command
    #
-   parser_group = subparsers.add_parser('group')
+   parser_group = subparsers.add_parser('group', help='Group commands')
    group_sub = parser_group.add_subparsers()
 
    # snapctl group mute
@@ -207,7 +207,7 @@ def main():
    #
    # The stream command
    #
-   parser_stream = subparsers.add_parser('stream')
+   parser_stream = subparsers.add_parser('stream', help='Stream commands')
    stream_sub = parser_stream.add_subparsers()
 
    # snapctl stream show <nameorid>
@@ -219,7 +219,7 @@ def main():
    #
    # The client command
    #
-   parser_client = subparsers.add_parser('client')
+   parser_client = subparsers.add_parser('client', help='Client commands')
    client_sub = parser_client.add_subparsers()
 
    # snapctl client show <nameorid>
