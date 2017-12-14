@@ -56,31 +56,40 @@ class SnapController(object):
    def showStream(self, stream, meta=False, multiline=True):
       if(type(stream) is str):
          stream = self._snapserver.stream(stream)
-      print('[%s] %s' %(stream.status, stream.name))
       if meta and stream.status != 'idle':
          meta = stream.meta
-         print(meta)
+         artist = setdefault(meta['ARTIST'], '-unknown-')
+         title = setdefault(meta['TITLE'], '-unknown-')
+         print("%s playing '%s' by %s" %(stream.name, title, artist))
+      else:  
+         print('%s' %(stream.name))
 
    def showAllStreams(self, meta=False):
       for stream in self._snapserver.streams:
          self.showStream(stream, meta=meta, multiline=False)
 
+   # Client information
+   def showClient(self, client, multiline=True):
+      if(type(client) is str):
+         client = self._snapserver.client(client)
+
+      clientname = setdefault(client.name, '-noname-')
+
+      if self._verbose:
+         print('[%s] %s' %(client.identifier, clientname))
+      else:
+         print('%s' %(clientname))
+
+   def showAllClients(self):
+      for client in self._snapserver.clients:
+         self.showClient(client, multiline=False)
+
    # Group information
    def showGroup(self, group, multiline=True):
       if(type(group) is str):
-         try:
-            group = self._snapserver.group(group)
+         group = self._groupByNameOrId(group)
 
-         except KeyError:
-            for g in self._snapserver.groups:
-               if(g.name == group):
-                  group = g
-                  break            
-
-            if(type(group) is str):
-               raise
- 
-      groupname = setdefault(group.name, '<no-name>')
+      groupname = setdefault(group.name, '-noname-')
   
       if self._verbose:
          print('[%s] %s, stream %s' %(group.identifier, groupname, group.stream))
@@ -91,6 +100,47 @@ class SnapController(object):
       for group in self._snapserver.groups:
          self.showGroup(group, multiline=False)
 
+   # Group actions
+   def renameGroup(self, nameorid, newname):
+      print("Rename group <%s> to <%s>" %(nameorid, newname))
+      
+   def addGroup(self, name):
+      print("Add group <%s>" %(name))
+      
+   def deleteGroup(self, nameorid):
+      print("Delete group <%s>" %(nameorid))
+
+   def muteGroups(self, nameorids=None, mute=False):
+
+      # Group name or id string
+      if(type(nameorids) is str):
+         nameorids = [nameorids]
+
+      # Empty list implies all groups
+      if(len(nameorids)==0):
+         nameorids = map(lambda g: g.identifier , self._snapserver.groups)
+
+      for gid in nameorids:
+         group = self._groupByNameOrId(gid)
+         obj = group.set_muted(mute)
+         self._loop.run_until_complete(obj)
+         if(self._verbose):
+            print("Mute %s status %s" %(group.friendly_name, mute))
+
+   #
+   # Lookup functions
+   #
+   def _groupByNameOrId(self, nameorid):
+      try:
+         return self._snapserver.group(nameorid)
+
+      except KeyError:
+         for g in self._snapserver.groups:
+            if(g.name == nameorid):
+               return g
+
+         raise
+      
    #
    # Update functions
    #
@@ -117,23 +167,42 @@ def main():
    parser_group = subparsers.add_parser('group')
    group_sub = parser_group.add_subparsers()
 
+   # snapctl group mute
+   parser_group_mute = group_sub.add_parser('mute', help='Mute a group volume')
+   parser_group_mute.set_defaults(mutegroup=True)
+   parser_group_mute.add_argument('nameorid', nargs='*', help='Name or id of group(s)')
+
+   # snapctl group unmute
+   parser_group_unmute = group_sub.add_parser('unmute', help='Unmute a group volume')
+   parser_group_unmute.set_defaults(unmutegroup=True)
+   parser_group_unmute.add_argument('nameorid', nargs='*', help='Name or id of group(s)')
+
+   # snapctl group volume <percent>
+   parser_group_volume = group_sub.add_parser('volume', help='Set a group volume')
+   parser_group_volume.set_defaults(volumegroup=True)
+   parser_group_volume.add_argument('percent', action='store', help='Group volume')
+   parser_group_volume.add_argument('nameorid', nargs='*', help='Name or id of group(s)')
+
    # snapctl group show <nameorid>
-   parser_group_show = group_sub.add_parser('show', help='Display information about one or all groups')
+   parser_group_show = group_sub.add_parser('show', help='Display information about one,more or all groups')
    parser_group_show.set_defaults(showgroup=True)
    parser_group_show.add_argument('nameorid', nargs='*', help='Name or id of group(s)')
 
    # snapctl group add <name> 
    parser_group_add = group_sub.add_parser('add', help='Add a new group')
    parser_group_add.set_defaults(addgroup=True)
-   #parser_group.add_argument('nameorid', action='store', help='name of group to add')
+   parser_group_add.add_argument('newname', action='store', help='New group name')
 
    # snapctl group del <nameorid> 
    parser_group_del = group_sub.add_parser('delete', help='Delete a group')
    parser_group_del.set_defaults(delgroup=True)
+   parser_group_del.add_argument('nameorid', action='store', help='Group to delete')
 
    # snapctl group rename <nameorid> <name>
    parser_group_ren = group_sub.add_parser('rename', help='Rename a group')
    parser_group_ren.set_defaults(rengroup=True)
+   parser_group_ren.add_argument('nameorid', action='store', help='Group to rename')
+   parser_group_ren.add_argument('newname', action='store', help='New group name')
 
    #
    # The stream command
@@ -143,9 +212,9 @@ def main():
 
    # snapctl stream show <nameorid>
    parser_stream_show = stream_sub.add_parser('show', help='Show one or all streams')
+   parser_stream_show.add_argument('-m', '--meta', action='store_true', default=False, help='Display metadata')
    parser_stream_show.set_defaults(showstream=True)
    parser_stream_show.add_argument('nameorid',nargs='*')
-   parser.add_argument('-m', '--meta', action='store_true', default=False)
 
    #
    # The client command
@@ -156,6 +225,7 @@ def main():
    # snapctl client show <nameorid>
    parser_client_show = client_sub.add_parser('show', help='Show a client')
    parser_client_show.set_defaults(showclient=True)
+   parser_client_show.add_argument('nameorid',nargs='*')
 
    # snapctl client rename <nameorid> <name>
    parser_client_ren = client_sub.add_parser('rename', help='Rename a client')
@@ -187,6 +257,38 @@ def main():
             controller.showGroup(nameorid)
       else:
          controller.showAllGroups()
+
+   # Show one or more clients
+   elif('showclient' in args and args.showclient):
+      if args.nameorid:
+         for nameorid in args.nameorid:
+            controller.showClient(nameorid)
+      else:
+         controller.showAllClients()
+
+   # Add a group
+   elif('addgroup' in args and args.addgroup):
+      controller.addGroup(args.newname)
+
+   # Delete a group
+   elif('delgroup' in args and args.delgroup):
+      controller.deleteGroup(args.nameorid)
+
+   # Rename a group
+   elif('rengroup' in args and args.rengroup):
+      controller.renameGroup(args.nameorid, args.newname)
+
+   # Mute a group
+   elif('mutegroup' in args and args.mutegroup):
+      controller.muteGroups(args.nameorid, mute=True)
+
+   # Unmute a group
+   elif('unmutegroup' in args and args.unmutegroup):
+      controller.muteGroups(args.nameorid, mute=False)
+
+   # Set group volume
+   elif('volumegroup' in args and args.volumegroup):
+      print("Set group volume")
 
    # No arguments given, display help
    else:
