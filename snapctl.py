@@ -24,6 +24,11 @@ def getdefault(a,b):
       return a
    return b
 
+def gettag(meta, tag, default):
+   if tag in meta:
+      return meta[tag]
+   return default
+
 class SnapController(object):
    """Snapcast controller"""
 
@@ -56,13 +61,27 @@ class SnapController(object):
    def showStream(self, stream, meta=False, multiline=True):
       if(type(stream) is str):
          stream = self._snapserver.stream(stream)
+
       if meta and stream.status != 'idle':
          meta = stream.meta
-         artist = getdefault(meta['ARTIST'], '-unknown-')
-         title = getdefault(meta['TITLE'], '-unknown-')
-         print("%s playing '%s' by %s" %(stream.name, title, artist))
-      else:  
-         print('%s' %(stream.name))
+         artist = gettag(meta, 'ARTIST', '-unknown-')
+         album = gettag(meta, 'ALBUM', '-unknown-')
+         title = gettag(meta, 'TITLE', '-unknown-')
+
+      if multiline or self._verbose:
+         print('Stream ID  : %s' %(stream.identifier))
+         print('   name    : %s' %(stream.name))
+         if meta and stream.status != 'idle':
+            print('   Artist  : %s' %(artist))
+            print('   Album   : %s' %(album))
+            print('   Title   : %s' %(title))
+         print()
+
+      else:
+         if meta and stream.status != 'idle':
+            print("%s playing '%s' by %s" %(stream.name, title, artist))
+         else:  
+            print('[%s] %s' %(stream.state, stream.name))
 
    def showAllStreams(self, meta=False):
       for stream in self._snapserver.streams:
@@ -77,9 +96,9 @@ class SnapController(object):
       groupname = getdefault(client.group.name, '-noname-')
 
       if multiline or self._verbose:
-
          print('Client ID  : %s' %(client.identifier))
          print('   name    : %s' %(clientname))
+         print('   host    : %s' %(client.hostname))
          print('   group   : %s' %(groupname))
          print('   muted   : %s' %(client.muted))
          print()
@@ -95,7 +114,6 @@ class SnapController(object):
       pass
 
    def renameClient(self, nameorid, newname):
-      print("Rename client <%s> to <%s>" %(nameorid, newname))
       client = self._clientByNameOrId(nameorid)
       obj = client.set_name(newname)
       self._loop.run_until_complete(obj)
@@ -110,17 +128,36 @@ class SnapController(object):
             print("Mute '%s' status %s" %(client.name, mute))
 
    # Group information
-   def showGroup(self, group, multiline=True):
+   def showGroup(self, group, multiline=True, meta=False):
       if(type(group) is str):
          group = self._groupByNameOrId(group)
 
       groupname = getdefault(group.name, '-noname-')
       streamname = getdefault(group.stream, '-none-')
   
+      has_meta = meta
+      stream = self._snapserver.stream(group.stream)
+
+      if meta and stream.status != 'idle':
+         artist = gettag(stream.meta, 'ARTIST', '-unknown-')
+         album = gettag(stream.meta, 'ALBUM', '-unknown-')
+         title = gettag(stream.meta, 'TITLE', '-unknown-')
+         has_meta = True
+
       if multiline or self._verbose:
          print('Group ID   : %s' %(group.identifier))
          print('   name    : %s' %(group.name))
          print('   muted   : %s' %(group.muted))
+         print('   stream  : %s' %(group.stream))
+
+         if has_meta:
+            print()
+            print('   Stream tags:')
+            print('      Artist  : %s' %(artist))
+            print('      Album   : %s' %(album))
+            print('      Title   : %s' %(title))
+
+         print()
          print('   clients :')
          for cid in group.clients:
             client = self._snapserver.client(cid)
@@ -135,9 +172,9 @@ class SnapController(object):
 
          print('[%s] %s%s, stream %s' %(group.identifier, groupname, is_muted, streamname))
 
-   def showAllGroups(self):
+   def showAllGroups(self, meta=False):
       for group in self._snapserver.groups:
-         self.showGroup(group, multiline=False)
+         self.showGroup(group, multiline=False, meta=meta)
 
    # Group actions
    def assignStream(self, nameorid, stream):
@@ -246,6 +283,7 @@ def main():
    )
    parser.add_argument('-v', '--verbose', action='count', default=0)
    parser.add_argument('-d', '--debug', action='store_true')
+   parser.add_argument('-m', '--meta', action='store_true', default=False, help='Display metadata where applicable')
    parser.add_argument('-s', '--server', default=os.environ.get('SNAPSERVER', '127.0.0.1:1705'))
    subparsers = parser.add_subparsers(help='Snapcast control commands')
    
@@ -306,7 +344,6 @@ def main():
 
    # snapctl stream show <nameorid>
    parser_stream_show = stream_sub.add_parser('show', help='Show one or all streams')
-   parser_stream_show.add_argument('-m', '--meta', action='store_true', default=False, help='Display metadata')
    parser_stream_show.set_defaults(showstream=True)
    parser_stream_show.add_argument('nameorid',nargs='*')
 
@@ -390,9 +427,9 @@ def main():
    elif('showgroup' in args and args.showgroup):
       if args.nameorid:
          for nameorid in args.nameorid:
-            controller.showGroup(nameorid)
+            controller.showGroup(nameorid, meta=args.meta)
       else:
-         controller.showAllGroups()
+         controller.showAllGroups(meta=args.meta)
 
    # Add a group
    elif('addgroup' in args and args.addgroup):
